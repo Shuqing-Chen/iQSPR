@@ -1,7 +1,7 @@
 from xenonpy.inverse.iqspr import NGram
 from rdkit import Chem
 import numpy as np
-from xenonpy.descriptor.base import BaseDescriptor
+from xenonpy.descriptor.fingerprint import Fingerprints
 
 
 def make_beta_from_sigmoid(n, start=-6, end=8):
@@ -29,70 +29,33 @@ def sample_seeds(smiles):
     return random.choices(smiles, k=25)
 
 
-def make_fingerprints(kwds=('ECFP', 'TopologicalTorsionFP'), **kwargs):
-    """
-    Chose kwds from below.
-    kwds = ['RDKitFP',
-            'AtomPairFP',
-            'TopologicalTorsionFP',
-            'MACCS',
-            'ECFP',
-            'FCFP',
-            'DescriptorFeature']
-            or 'all'
-
-    :param kwds: list of fingerprint name
-    :param kwargs: parameter of Fingerprints
-    :return:
-    """
-
-    if kwds == 'all' or (len(kwds) == 1 and kwds[0] == 'all'):
-        kwds = ('RDKitFP', 'AtomPairFP', 'TopologicalTorsionFP',
-                'MACCS', 'ECFP', 'FCFP', 'DescriptorFeature')
-
-    return Fingerprints(kwds=kwds, **kwargs)
+def make_fingerprints(*args, **kwargs):
+    return Fingerprints(*args, input_type='smiles', **kwargs)
 
 
 class IqsprWrapper:
 
-    def __init__(self, models=None, desired_values=None, beta=None, ngram_model=None, seed_structure=None):
+    def __init__(self, models=None, desired_values=None, beta=None, ngram_model=None,
+                 descriptor_generator=None, seed_structure=None):
         self.models = models
         self.desired_values = desired_values
         self.beta = beta
         self.ngram_model = ngram_model
+        self.descriptor_generator = descriptor_generator
         self.seed_structure = seed_structure
         self.iqspr_results = None
         return
-
-    @property
-    def models(self):
-        return self.models
-
-    @models.setter
-    def models(self, dic):
-        if isinstance(dic, dict):
-            self.models = dic
-        else:
-            raise TypeError
-
-    @property
-    def desired_values(self):
-        return self.desired_values
-
-    @desired_values.setter
-    def desired_values(self, dic):
-        if isinstance(dic, dict):
-            self.desired_values = dic
-        else:
-            raise TypeError
 
     def check_properties(self):
         pass
 
     def run(self):
         from xenonpy.inverse.iqspr import IQSPR
+        from xenonpy.inverse.iqspr import BayesianRidgeEstimator
+
         self.check_properties()
-        iqspr = IQSPR(estimator=self.models, modifier=self.ngram_model)
+        prd_mdls = BayesianRidgeEstimator(descriptor=self.descriptor_generator, **self.models)
+        iqspr = IQSPR(estimator=prd_mdls, modifier=self.ngram_model)
         proposed_structures, log_likelihood, probability_score, iqspr_freq = [], [], [], []
         for s, ll, p, freq in iqspr(self.seed_structure, self.beta, yield_lpf=True, **self.desired_values):
             proposed_structures.append(s)
@@ -226,67 +189,3 @@ def _convert_safety(target, function):
             print(i, e)
             pass
     return ret
-
-
-class Fingerprints(BaseDescriptor):
-    """
-    Calculate fingerprints or descriptors of organic molecules.
-    """
-
-    def __init__(self, kwds=None, n_jobs=-1, *, radius=3, n_bits=2048, fp_size=2048, input_type='mol',
-                 featurizers='all',
-                 on_errors='raise'):
-        """
-
-        Parameters
-        ----------
-        n_jobs: int
-            The number of jobs to run in parallel for both fit and predict. Set -1 to use all cpu cores (default).
-        radius: int
-            The radius parameter in the Morgan fingerprints,
-            which is roughly half of the diameter parameter in ECFP/FCFP,
-            i.e., radius=2 is roughly equivalent to ECFP4/FCFP4.
-        n_bits: int
-            Fixed bit length based on folding.
-        featurizers: list[str] or 'all'
-            Featurizers that will be used.
-            Default is 'all'.
-        input_type: string
-            Set the specific type of transform input.
-            Set to ``mol`` (default) to ``rdkit.Chem.rdchem.Mol`` objects as input.
-            When set to ``smlies``, ``transform`` method can use a SMILES list as input.
-            Set to ``any`` to use both.
-            If input is SMILES, ``Chem.MolFromSmiles`` function will be used inside.
-            for ``None`` returns, a ``ValueError`` exception will be raised.
-        on_errors: string
-            How to handle exceptions in feature calculations. Can be 'nan', 'keep', 'raise'.
-            When 'nan', return a column with ``np.nan``.
-            The length of column corresponding to the number of feature labs.
-            When 'keep', return a column with exception objects.
-            The default is 'raise' which will raise up the exception.
-        """
-
-        super().__init__(featurizers=featurizers)
-        self.n_jobs = n_jobs
-
-        if 'RDKitFP' in kwds:
-            from xenonpy.descriptor.fingerprint import RDKitFP
-            self.mol = RDKitFP(n_jobs, fp_size=fp_size, input_type=input_type, on_errors=on_errors)
-        if 'AtomPairFP' in kwds:
-            from xenonpy.descriptor.fingerprint import AtomPairFP
-            self.mol = AtomPairFP(n_jobs, n_bits=n_bits, input_type=input_type, on_errors=on_errors)
-        if 'TopologicalTorsionFP' in kwds:
-            from xenonpy.descriptor.fingerprint import TopologicalTorsionFP
-            self.mol = TopologicalTorsionFP(n_jobs, n_bits=n_bits, input_type=input_type, on_errors=on_errors)
-        if 'MACCS' in kwds:
-            from xenonpy.descriptor.fingerprint import MACCS
-            self.mol = MACCS(n_jobs, input_type=input_type, on_errors=on_errors)
-        if 'ECFP' in kwds:
-            from xenonpy.descriptor.fingerprint import ECFP
-            self.mol = ECFP(n_jobs, radius=radius, n_bits=n_bits, input_type=input_type, on_errors=on_errors)
-        if 'FCFP' in kwds:
-            from xenonpy.descriptor.fingerprint import FCFP
-            self.mol = FCFP(n_jobs, radius=radius, n_bits=n_bits, input_type=input_type, on_errors=on_errors)
-        if 'DescriptorFeature' in kwds:
-            from xenonpy.descriptor.fingerprint import DescriptorFeature
-            self.mol = DescriptorFeature(n_jobs, input_type=input_type, on_errors=on_errors)

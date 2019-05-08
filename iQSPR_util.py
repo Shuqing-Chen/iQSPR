@@ -23,6 +23,12 @@ def make_forward_model(smiles, values, fingerprints_generator):
     return model
 
 
+def sample_seeds(smiles):
+    import random
+    # 25 seeds will be chosen, because 'visualise' function can treat just 25 seeds only.
+    return random.choices(smiles, k=25)
+
+
 def make_fingerprints(kwds=('ECFP', 'TopologicalTorsionFP'), **kwargs):
     """
     Chose kwds from below.
@@ -47,7 +53,7 @@ def make_fingerprints(kwds=('ECFP', 'TopologicalTorsionFP'), **kwargs):
     return Fingerprints(kwds=kwds, **kwargs)
 
 
-class IqsprUtil:
+class IqsprWrapper:
 
     def __init__(self, models=None, desired_values=None, beta=None, ngram_model=None, seed_structure=None):
         self.models = models
@@ -132,7 +138,7 @@ class IqsprUtil:
         plt.close()
         return
 
-    def visualize(self, data_ss, outdir='./', file_name='temp.png'):
+    def visualize(self, out_dir='./', sub_dir='structure_history/'):
         import matplotlib.pyplot as plt
         from rdkit.Chem import Draw
 
@@ -153,7 +159,7 @@ class IqsprUtil:
                 except:
                     pass
                 ax[x_axis, y_axis].set_axis_off()
-            fig.savefig(outdir + 'Step_%02i.png' % i, dpi=500)
+            fig.savefig(out_dir + sub_dir + 'Step_%02i.png' % i, dpi=500)
             plt.close()
 
 

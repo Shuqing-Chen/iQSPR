@@ -7,14 +7,15 @@ import os
 def main():
     data = pd.read_csv('temp.csv')
     smiles = data['smiles']
-    props = data['props']
+    energy = data['E']
+    gap = data['HOMO-LUMO gap']
 
     # learn ngram
     n_gram = iQSPR_util.make_ngram_model(smiles)
 
     fingerprints_generator = iQSPR_util.make_fingerprints()
-    e_model = iQSPR_util.make_forward_model(smiles, props, fingerprints_generator)
-    gap_model = iQSPR_util.make_forward_model(smiles, props, fingerprints_generator)
+    e_model = iQSPR_util.make_forward_model(smiles, energy, fingerprints_generator)
+    gap_model = iQSPR_util.make_forward_model(smiles, gap, fingerprints_generator)
     models = {'E': e_model, 'HOMO-LUMO gap': gap_model}
 
     # settings for iQSPR

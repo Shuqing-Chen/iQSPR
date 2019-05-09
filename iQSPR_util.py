@@ -15,12 +15,23 @@ def make_ngram_model(smiles):
 
 def make_forward_model(smiles, values, fingerprints_generator):
     from sklearn.linear_model import BayesianRidge
+    from sklearn.model_selection import GridSearchCV
 
     x = fingerprints_generator.transform(smiles)
-    model = BayesianRidge(compute_score=True)
-    model.fit(x, values)
 
-    return model
+    params = {
+        'alpha_1': np.logspace(1e-7, 1e-5, 5),
+        'alpha_2': np.logspace(1e-7, 1e-5, 5),
+        'lambda_1': np.logspace(1e-7, 1e-5, 5),
+        'lambda_2': np.logspace(1e-7, 1e-5, 5)
+    }
+
+    model = BayesianRidge(compute_score=True)
+    grid_search = GridSearchCV(model, param_grid=params, cv=10)
+    grid_search.fit(x, values)
+    # model.fit(x, values)
+
+    return grid_search.best_estimator_
 
 
 def sample_seeds(smiles):
@@ -157,7 +168,7 @@ def _learn_n_gram2(smiles, reorder_prob=0.5, paraphrased_smiles_number=10):
         sample_number = min(number_of_atom, paraphrased_smiles_number)
 
         shuffled_index = np.random.permutation(number_of_atom)
-        tmp = [Chem.MolToSmiles(mol, rootedAtAtom=x) for x in shuffled_index[:sample_number]]
+        tmp = [Chem.MolToSmiles(mol, rootedAtAtom=int(x)) for x in shuffled_index[:sample_number]]
         gen_smi_append(list(set(tmp)))
 
     flat_list = [item for sublist in generated_smiles for item in sublist]

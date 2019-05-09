@@ -19,19 +19,10 @@ def make_forward_model(smiles, values, fingerprints_generator):
 
     x = fingerprints_generator.transform(smiles)
 
-    params = {
-        'alpha_1': np.logspace(1e-7, 1e-5, 5),
-        'alpha_2': np.logspace(1e-7, 1e-5, 5),
-        'lambda_1': np.logspace(1e-7, 1e-5, 5),
-        'lambda_2': np.logspace(1e-7, 1e-5, 5)
-    }
-
     model = BayesianRidge(compute_score=True)
-    grid_search = GridSearchCV(model, param_grid=params, cv=10)
-    grid_search.fit(x, values)
-    # model.fit(x, values)
+    model.fit(x, values)
 
-    return grid_search.best_estimator_
+    return model
 
 
 def sample_seeds(smiles):
